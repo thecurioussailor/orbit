@@ -1,148 +1,239 @@
-# Architecture
+# Orbit Architecture
 
-## Overview
-
-Orbit is designed as an AI operating companion rather than a traditional assistant.
-
-Instead of executing predefined commands, Orbit understands user intent, plans multi-step workflows, interacts with applications, and continuously learns how the user works.
-
-The architecture is modular by design.
-
-Every capability—browser automation, desktop automation, memory, voice interaction, or future integrations—should be implemented as an independent component that communicates through a central planning system.
+> Version: 0.1
+>
+> Status: Draft
+>
+> Last Updated: July 2026
 
 ---
 
-# Core Principles
+# Overview
 
-Orbit follows several architectural principles.
+Orbit is an AI Operating Companion.
 
-## Separation of Responsibilities
+Unlike traditional AI assistants that primarily answer questions or execute isolated commands, Orbit is designed to become an intelligent operating layer between humans and computers.
 
-Every component has one responsibility.
+Orbit understands user intent, observes the current state of the computer, plans multi-step workflows, executes those workflows safely across applications, and continuously learns from interaction.
 
-The planner plans.
+The architecture is intentionally modular.
 
-The browser agent controls browsers.
-
-The desktop agent controls the operating system.
-
-Memory stores knowledge.
-
-Conversation handles communication.
-
-No component should perform another component's job.
+Every major capability is isolated into an independent system so that Orbit can continue evolving without requiring large architectural changes.
 
 ---
 
-## Planner-Centric Design
+# Goals
 
-Every user request flows through the Planner.
+The architecture should enable Orbit to:
 
-No automation component should directly decide what to do.
-
-Instead, automation components execute plans produced by the planner.
-
-This keeps behavior predictable and explainable.
+- Understand natural language
+- Operate desktop applications
+- Operate web browsers
+- Execute multi-step workflows
+- Learn user preferences
+- Remember previous work
+- Ask for clarification whenever needed
+- Execute safely
+- Expand with new capabilities over time
 
 ---
 
-## Human In Control
+# Non Goals
 
-Orbit should never perform important actions without confirmation.
+Orbit is not designed to be:
+
+- another chatbot
+- another browser automation tool
+- another voice assistant
+- another scripting language
+
+Instead, Orbit acts as an intelligent operating layer capable of coordinating all of these capabilities together.
+
+---
+
+# Architectural Principles
+
+The following principles guide every architectural decision.
+
+---
+
+## Intent Before Commands
+
+Users communicate goals rather than individual actions.
+
+Instead of:
+
+> Open Chrome.
+
+> Open Gmail.
+
+> Search LinkedIn.
+
+The user simply says:
+
+> Find founders hiring frontend engineers.
+
+Orbit determines the necessary workflow.
+
+---
+
+## Planning Before Execution
+
+Orbit never executes immediately.
+
+Every request is first analyzed, understood, planned, and validated before execution begins.
+
+Planning is always separated from execution.
+
+---
+
+## Observe Before Planning
+
+Planning requires context.
+
+Before generating a plan, Orbit first observes the current state of the user's environment.
 
 Examples include:
+
+- currently active applications
+- browser tabs
+- clipboard
+- notifications
+- selected text
+- running processes
+- previous conversation
+- stored memory
+
+Orbit should avoid asking questions it already knows the answer to.
+
+---
+
+## Human Always In Control
+
+Orbit should never remove the user from important decisions.
+
+High impact actions always require explicit approval.
+
+Examples:
 
 - sending emails
 - deleting files
 - publishing content
 - transferring money
+- purchasing products
 
-The planner determines whether confirmation is required before execution.
-
----
-
-## Modular Architecture
-
-Orbit should allow new capabilities to be added without changing the rest of the system.
-
-Future modules should simply register themselves with Orbit.
-
-Examples:
-
-- GitHub Agent
-- Slack Agent
-- Spotify Agent
-- Calendar Agent
-- WhatsApp Agent
+Automation should increase trust rather than reduce it.
 
 ---
 
-# High-Level Architecture
+## Learn Continuously
+
+Orbit becomes more helpful over time.
+
+The assistant gradually learns:
+
+- preferred applications
+- working hours
+- recurring workflows
+- active projects
+- frequently visited websites
+- communication style
+
+Learning should improve the experience without becoming intrusive.
+
+---
+
+## Modular By Design
+
+Orbit is composed of independent systems.
+
+Each system owns a single responsibility.
+
+New capabilities should be added without changing existing systems.
+
+---
+
+# High-Level System Architecture
 
 ```
-
-+----------------------------+
-| User |
-+-------------+--------------+
-|
-v
-+----------------------------+
-| Voice / Chat UI |
-+-------------+--------------+
-|
-v
-+----------------------------+
-| Conversation Manager |
-+-------------+--------------+
-|
-v
-+----------------------------+
-| Planner |
-+-------------+--------------+
-|
-+--------+--------+---------+
-| | |
-v v v
-Browser Desktop Memory
-Agent Agent
-| | |
-+--------+--------+
-|
-v
-Operating System
-
+                               User
+                                 │
+                                 ▼
+                    Presentation System
+                 (Voice • Chat • Interface)
+                                 │
+                                 ▼
+                   Conversation System
+          (Intent • Conversation State • History)
+                                 │
+                                 ▼
+                    Observation System
+      (Desktop • Browser • Memory • Context • State)
+                                 │
+                                 ▼
+                    Intelligence System
+              (Reasoning • Goal Understanding)
+                                 │
+                                 ▼
+                     Planning System
+                 (Task Graph Generation)
+                                 │
+                                 ▼
+                         Scheduler
+                                 │
+                                 ▼
+                      Safety System
+                                 │
+                                 ▼
+                      Tool Registry
+                                 │
+      ┌──────────────┬──────────────┬──────────────┐
+      ▼              ▼              ▼              ▼
+ Browser         Desktop       Terminal         API Tools
+ Executor        Executor      Executor        Executor
+      └──────────────┴──────────────┴──────────────┘
+                                 │
+                                 ▼
+                         Operating System
+                                 │
+                                 ▼
+                           Observation
+                         (Feedback Loop)
 ```
 
 ---
 
-# System Components
+# Core Systems
 
-## Presentation Layer
+---
 
-Responsible for communication with the user.
+# Presentation System
+
+The Presentation System is responsible for all user interaction.
 
 Responsibilities
 
-- Voice
-- Chat
+- Voice Input
+- Chat Interface
 - Notifications
-- Action approvals
-- Progress updates
+- Progress Updates
+- Permission Dialogs
 
-Never performs actions.
+It never performs actions.
+
+It simply provides a communication layer between the user and Orbit.
 
 ---
 
-## Conversation Manager
+# Conversation System
 
-Responsible for understanding user requests.
+Responsible for understanding conversations.
 
 Responsibilities
 
-- Maintain conversations
-- Resolve references
-- Track user intent
-- Handle clarification
+- Natural language understanding
+- Conversation history
+- Reference resolution
 
 Example
 
@@ -150,130 +241,275 @@ User:
 
 > Reply to him.
 
-Conversation Manager resolves:
+Conversation resolves:
 
 "Him" → Adam
 
-before sending the request to the planner.
+before planning begins.
 
 ---
 
-## Planner
+# Observation System
 
-The Planner is the brain of Orbit.
+Orbit should never plan blindly.
+
+Before every task it observes the current state of the computer.
 
 Responsibilities
 
-- Understand goals
-- Break work into steps
-- Select tools
-- Decide execution order
-- Evaluate confidence
-- Ask for clarification
-- Generate execution plans
+Desktop
 
-The Planner never clicks buttons.
-
-It only creates plans.
-
----
-
-## Execution Layer
-
-The execution layer performs work.
-
-It never makes decisions.
-
-Execution consists of multiple independent agents.
-
-### Browser Agent
-
-Responsible for
-
-- opening websites
-- reading pages
-- clicking buttons
-- filling forms
-- extracting information
-
----
-
-### Desktop Agent
-
-Responsible for
-
-- launching applications
-- mouse
-- keyboard
+- running applications
+- active window
 - clipboard
-- windows
+- notifications
 - file explorer
 
----
+Browser
 
-### Terminal Agent
+- active tab
+- page contents
+- URL
+- selected text
 
-Responsible for
+Memory
 
-- shell commands
-- development workflows
-- git
-- npm
-- cargo
+- user preferences
+- recent work
+- long-term knowledge
 
----
-
-### File Agent
-
-Responsible for
-
-- reading files
-- writing files
-- moving files
-- searching files
+The observation system creates a snapshot of the current environment.
 
 ---
 
-# Knowledge Layer
+# Intelligence System
 
-Orbit remembers information through dedicated systems.
+The Intelligence System understands user goals.
+
+Responsibilities
+
+- understand intent
+- identify missing information
+- detect ambiguity
+- estimate confidence
+
+The Intelligence System never executes work.
+
+---
+
+# Planning System
+
+The Planning System converts goals into executable workflows.
+
+Responsibilities
+
+- break goals into tasks
+- generate execution order
+- select required capabilities
+- request clarification when needed
+
+Output
+
+A Task Graph.
+
+The planner never clicks buttons.
+
+---
+
+# Task Graph
+
+The Task Graph represents the work Orbit intends to perform.
+
+Example
+
+Goal
+
+Review recruiter emails
+
+↓
+
+Open Gmail
+
+↓
+
+Locate recruiter conversations
+
+↓
+
+Summarize
+
+↓
+
+Draft replies
+
+↓
+
+Wait for approval
+
+Task Graphs allow Orbit to
+
+- retry tasks
+- pause execution
+- resume execution
+- parallelize work
+- explain decisions
+
+---
+
+# Scheduler
+
+The Scheduler decides how tasks are executed.
+
+Responsibilities
+
+- sequential execution
+- parallel execution
+- retries
+- dependency resolution
+
+The Scheduler does not plan.
+
+It only schedules.
+
+---
+
+# Safety System
+
+Every task passes through the Safety System.
+
+Responsibilities
+
+- classify risk
+- request approval
+- block dangerous actions
+- verify permissions
+
+Example
+
+Safe
+
+- open website
+- search Google
+- read webpage
+
+Medium
+
+- rename files
+- download documents
+
+High
+
+- delete data
+- send email
+- purchase products
+
+---
+
+# Tool Registry
+
+Orbit does not directly know how to control software.
+
+Instead it discovers available capabilities through the Tool Registry.
+
+Examples
+
+Browser
+
+Desktop
+
+Filesystem
+
+Terminal
+
+GitHub
+
+Calendar
+
+Spotify
+
+Slack
+
+VS Code
+
+Future integrations simply register themselves.
+
+No planner changes required.
+
+---
+
+# Execution Systems
+
+Execution Systems never make decisions.
+
+They simply execute assigned tasks.
+
+Examples
+
+Browser Executor
+
+Desktop Executor
+
+Terminal Executor
+
+Filesystem Executor
+
+Cloud Executor
+
+Every executor follows the same interface.
+
+Input
+
+Task
+
+Output
+
+Execution Result
+
+---
+
+# Knowledge System
+
+Orbit stores information using two different layers.
+
+---
 
 ## Memory
 
-Stores long-term knowledge.
+Long-term information.
 
 Examples
 
 - preferred browser
-- work schedule
-- active projects
+- recurring workflows
 - favorite websites
-
----
-
-## Context
-
-Stores temporary knowledge.
-
-Examples
-
-- active window
-- clipboard
-- browser tabs
-- selected text
-- running applications
-
-Context changes continuously.
+- active projects
+- communication style
 
 Memory persists.
 
 ---
 
-# Execution Flow
+## Context
+
+Temporary information.
+
+Examples
+
+- active window
+- clipboard
+- running applications
+- browser state
+
+Context changes continuously.
+
+---
+
+# Request Lifecycle
 
 Every request follows the same lifecycle.
 
-User
+```
+User Request
 
 ↓
 
@@ -281,31 +517,31 @@ Conversation
 
 ↓
 
-Planner
+Observation
 
 ↓
 
-Need clarification?
+Intelligence
 
 ↓
 
-Yes → Ask User
+Planning
 
 ↓
 
-No
+Task Graph
 
 ↓
 
-Generate Plan
+Scheduler
 
 ↓
 
-Permission Check
+Safety
 
 ↓
 
-Execute
+Execution
 
 ↓
 
@@ -313,62 +549,109 @@ Observe Result
 
 ↓
 
-Complete
+Continue or Finish
+```
+
+Orbit continuously observes the result of execution.
+
+If something changes unexpectedly, Orbit replans instead of blindly continuing.
 
 ---
 
-# Safety
+# Feedback Loop
 
-Actions are classified into three categories.
+Orbit operates as a continuous loop.
 
-Safe
+Observe
 
-- open browser
-- search website
-- read page
+↓
 
-Medium
+Think
 
-- rename file
-- download file
+↓
 
-Dangerous
+Plan
 
-- send email
-- delete data
-- transfer money
+↓
 
-Dangerous actions always require user approval.
+Execute
 
----
+↓
 
-# Future Expansion
+Observe Again
 
-Orbit is designed to support unlimited future agents.
+↓
 
-Examples include
+Continue
 
-- GitHub
-- Slack
-- Discord
-- Spotify
-- Gmail
-- Calendar
-- Figma
-- VS Code
-- Docker
-- Kubernetes
-
-These should integrate without modifying the planner itself.
+This feedback loop allows Orbit to recover from failures and adapt to changing environments.
 
 ---
 
-# Philosophy
+# Architectural Invariants
 
-Orbit is not a chatbot.
+These rules should remain true regardless of implementation.
 
-Orbit is not desktop automation.
+### Planner never executes actions.
 
-Orbit is not voice control.
+---
 
-Orbit is an AI operating layer that connects human intent with computer execution while continuously learning how its user works.
+### Executors never make decisions.
+
+---
+
+### Memory never controls execution.
+
+---
+
+### Every execution is observable.
+
+---
+
+### Every dangerous action requires approval.
+
+---
+
+### New capabilities should be plugins rather than modifications to the planner.
+
+---
+
+### Orbit always observes before planning.
+
+---
+
+### Every workflow should be explainable.
+
+The user should always be able to understand why Orbit performed an action.
+
+---
+
+# Future Evolution
+
+The current architecture is intentionally conservative.
+
+Future versions may introduce:
+
+- Multiple collaborating planners
+- Autonomous background agents
+- Local models
+- Cloud execution
+- Multi-device synchronization
+- Plugin marketplace
+- Team collaboration
+- Personal knowledge graph
+- Autonomous scheduling
+
+These capabilities should extend the architecture rather than replace it.
+
+---
+
+# Closing Philosophy
+
+Orbit is not designed to replace the user.
+
+Orbit is designed to remove unnecessary interaction between human intent and computer execution.
+
+The user should spend less time operating software and more time solving problems.
+
+Every architectural decision should move Orbit closer to becoming an intelligent operating companion that understands, assists, and continuously improves alongside its user.
