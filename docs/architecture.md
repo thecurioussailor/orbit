@@ -1,657 +1,176 @@
 # Orbit Architecture
 
-> Version: 0.1
->
-> Status: Draft
->
-> Last Updated: July 2026
+> Version: 0.2 · Status: Draft · Last Updated: July 2026
+> Supersedes: 0.1 (Intelligence System → Goal Builder; Context → World State;
+> shared systems modeled as horizontal services; Tool Registry removed from
+> the pipeline)
 
 ---
 
-# Overview
+## Overview
 
-Orbit is an AI Operating Companion.
+Orbit is an AI Operating Companion: an intelligent operating layer between
+humans and computers. Users express goals in natural language. Orbit
+observes the environment, plans workflows, executes them safely across
+applications, and learns how the user works.
 
-Unlike traditional AI assistants that primarily answer questions or execute isolated commands, Orbit is designed to become an intelligent operating layer between humans and computers.
-
-Orbit understands user intent, observes the current state of the computer, plans multi-step workflows, executes those workflows safely across applications, and continuously learns from interaction.
-
-The architecture is intentionally modular.
-
-Every major capability is isolated into an independent system so that Orbit can continue evolving without requiring large architectural changes.
-
----
-
-# Goals
-
-The architecture should enable Orbit to:
-
-- Understand natural language
-- Operate desktop applications
-- Operate web browsers
-- Execute multi-step workflows
-- Learn user preferences
-- Remember previous work
-- Ask for clarification whenever needed
-- Execute safely
-- Expand with new capabilities over time
+This document describes only how major systems interact. Subsystem detail
+lives in each subsystem's own directory. If a section here starts growing,
+it is trying to become a subsystem document — split it.
 
 ---
 
-# Non Goals
+## Architectural Shape
 
-Orbit is not designed to be:
-
-- another chatbot
-- another browser automation tool
-- another voice assistant
-- another scripting language
-
-Instead, Orbit acts as an intelligent operating layer capable of coordinating all of these capabilities together.
-
----
-
-# Architectural Principles
-
-The following principles guide every architectural decision.
-
----
-
-## Intent Before Commands
-
-Users communicate goals rather than individual actions.
-
-Instead of:
-
-> Open Chrome.
-
-> Open Gmail.
-
-> Search LinkedIn.
-
-The user simply says:
-
-> Find founders hiring frontend engineers.
-
-Orbit determines the necessary workflow.
-
----
-
-## Planning Before Execution
-
-Orbit never executes immediately.
-
-Every request is first analyzed, understood, planned, and validated before execution begins.
-
-Planning is always separated from execution.
-
----
-
-## Observe Before Planning
-
-Planning requires context.
-
-Before generating a plan, Orbit first observes the current state of the user's environment.
-
-Examples include:
-
-- currently active applications
-- browser tabs
-- clipboard
-- notifications
-- selected text
-- running processes
-- previous conversation
-- stored memory
-
-Orbit should avoid asking questions it already knows the answer to.
-
----
-
-## Human Always In Control
-
-Orbit should never remove the user from important decisions.
-
-High impact actions always require explicit approval.
-
-Examples:
-
-- sending emails
-- deleting files
-- publishing content
-- transferring money
-- purchasing products
-
-Automation should increase trust rather than reduce it.
-
----
-
-## Learn Continuously
-
-Orbit becomes more helpful over time.
-
-The assistant gradually learns:
-
-- preferred applications
-- working hours
-- recurring workflows
-- active projects
-- frequently visited websites
-- communication style
-
-Learning should improve the experience without becoming intrusive.
-
----
-
-## Modular By Design
-
-Orbit is composed of independent systems.
-
-Each system owns a single responsibility.
-
-New capabilities should be added without changing existing systems.
-
----
-
-# High-Level System Architecture
+Orbit is a **request pipeline** operating over a set of **horizontal
+services**, closed into a loop by **observation**.
 
 ```
-                               User
-                                 │
-                                 ▼
-                    Presentation System
-                 (Voice • Chat • Interface)
-                                 │
-                                 ▼
-                   Conversation System
-          (Intent • Conversation State • History)
-                                 │
-                                 ▼
-                    Observation System
-      (Desktop • Browser • Memory • Context • State)
-                                 │
-                                 ▼
-                    Intelligence System
-              (Reasoning • Goal Understanding)
-                                 │
-                                 ▼
-                     Planning System
-                 (Task Graph Generation)
-                                 │
-                                 ▼
-                         Scheduler
-                                 │
-                                 ▼
-                      Safety System
-                                 │
-                                 ▼
-                      Tool Registry
-                                 │
-      ┌──────────────┬──────────────┬──────────────┐
-      ▼              ▼              ▼              ▼
- Browser         Desktop       Terminal         API Tools
- Executor        Executor      Executor        Executor
-      └──────────────┴──────────────┴──────────────┘
-                                 │
-                                 ▼
-                         Operating System
-                                 │
-                                 ▼
-                           Observation
-                         (Feedback Loop)
+        User
+          │
+  Presentation ──────────────┐
+          │                  │        Horizontal services
+  Conversation               │        (consulted, never stages)
+          │                  │        ┌────────────────────────┐
+   Goal Builder ── Goal      │        │  World State           │
+          │                  │        │  Memory                │
+      Planner ── Workflow ───┘        │  Tool Registry         │
+          │      (approval)           │  Safety Policy Engine  │
+      Compiler ── Task Graph          │  Sessions              │
+          │                           │  Learning              │
+     Scheduler                        └────────────────────────┘
+          │                                      ▲
+     Executors                                   │
+          │                                      │
+  Operating System                               │
+          │                                      │
+   Observation ──────── updates World State ─────┘
 ```
 
----
+**Pipeline stages** transform a request: each consumes the previous stage's
+output and produces exactly one artifact type.
 
-# Core Systems
+**Horizontal services** hold shared state and shared judgment. They are
+consulted by stages; they never sit between stages, and a request never
+"passes through" them.
 
----
-
-# Presentation System
-
-The Presentation System is responsible for all user interaction.
-
-Responsibilities
-
-- Voice Input
-- Chat Interface
-- Notifications
-- Progress Updates
-- Permission Dialogs
-
-It never performs actions.
-
-It simply provides a communication layer between the user and Orbit.
+**Observation** runs continuously, not as a stage. It updates World State
+whenever the environment changes — including changes caused by Orbit's own
+executors, which is what closes the loop and enables replanning.
 
 ---
 
-# Conversation System
+## The Request Pipeline
 
-Responsible for understanding conversations.
+| Stage | Consumes | Produces | Must never |
+|---|---|---|---|
+| Presentation | user input, system output | rendered interaction | perform actions |
+| Conversation | dialogue turns | resolved utterances, history | plan or execute |
+| Goal Builder | resolved utterances + context | a well-formed **Goal** | pass ambiguity downstream |
+| Planner | Goal | **Workflow** (human-reviewable) | execute, talk to the user directly |
+| Compiler | approved Workflow | **Task Graph** (executable) | query the live world |
+| Scheduler | Task Graph | dispatched Tasks | plan |
+| Executors | Tasks (as Actions) | execution results | decide |
 
-Responsibilities
-
-- Natural language understanding
-- Conversation history
-- Reference resolution
-
-Example
-
-User:
-
-> Reply to him.
-
-Conversation resolves:
-
-"Him" → Adam
-
-before planning begins.
+The Goal Builder is the pipeline's quality gate: the Planner only ever
+receives valid, unambiguous Goals. When clarification is needed, the Goal
+Builder asks — routed through Conversation and Presentation — before
+anything reaches the Planner. (See ADR-0001.)
 
 ---
 
-# Observation System
+## Horizontal Services
 
-Orbit should never plan blindly.
+| Service | Owns | Primary consumers |
+|---|---|---|
+| World State | observed, timestamped, volatile facts about the environment | Goal Builder, Planner, Compiler, Replanning |
+| Memory | interpreted, persistent knowledge: preferences, habits, projects | Goal Builder, Planner, Compiler, Learning |
+| Tool Registry | capability manifests and provider bindings | Compiler, Executors, Safety |
+| Safety Policy Engine | risk evaluation and approval decisions, per action at dispatch | Scheduler/Executors (dispatch-time), Presentation (approval UI) |
+| Sessions | named scopes over related goals and session memory | Conversation, Goal Builder, Memory |
+| Learning | turning outcomes and feedback into Memory updates | Memory (write path) |
 
-Before every task it observes the current state of the computer.
+**Service dependency rule:** stages consult services; services never consult
+stages. Service-to-service dependencies are individually declared:
 
-Responsibilities
+- Learning → Memory (permitted: it is Learning's write path)
+- Safety → Tool Registry (permitted: authoritative risk classes live in
+  capability manifests)
+- All others: prohibited until justified by an ADR.
 
-Desktop
-
-- running applications
-- active window
-- clipboard
-- notifications
-- file explorer
-
-Browser
-
-- active tab
-- page contents
-- URL
-- selected text
-
-Memory
-
-- user preferences
-- recent work
-- long-term knowledge
-
-The observation system creates a snapshot of the current environment.
+Safety is a policy engine consulted **per action at dispatch time**, not a
+pipeline checkpoint. A plan approved as a whole can still contain an action
+that policy blocks at the moment of execution; the reverse — a stage-level
+pass allowing later unchecked actions — must be impossible.
 
 ---
 
-# Intelligence System
+## The Feedback Loop
 
-The Intelligence System understands user goals.
+Every Task declares expected effects — predicates over World State.
+Observation continuously updates World State; divergence between expectation
+and observation is routed by the replanning rule
+(planner/replanning.md): small failures heal below the approval line,
+strategic changes cross it.
 
-Responsibilities
-
-- understand intent
-- identify missing information
-- detect ambiguity
-- estimate confidence
-
-The Intelligence System never executes work.
+The loop, not the pipeline, is Orbit's defining property. A pipeline runs
+once and hopes; the loop observes, acts, re-observes, and adapts.
 
 ---
 
-# Planning System
+## Architectural Invariants
 
-The Planning System converts goals into executable workflows.
-
-Responsibilities
-
-- break goals into tasks
-- generate execution order
-- select required capabilities
-- request clarification when needed
-
-Output
-
-A Task Graph.
-
-The planner never clicks buttons.
-
----
-
-# Task Graph
-
-The Task Graph represents the work Orbit intends to perform.
-
-Example
-
-Goal
-
-Review recruiter emails
-
-↓
-
-Open Gmail
-
-↓
-
-Locate recruiter conversations
-
-↓
-
-Summarize
-
-↓
-
-Draft replies
-
-↓
-
-Wait for approval
-
-Task Graphs allow Orbit to
-
-- retry tasks
-- pause execution
-- resume execution
-- parallelize work
-- explain decisions
+1. The Planner never executes actions; Executors never make decisions.
+2. Planning happens against World State snapshots, never the live world.
+3. The Planner never interacts with the user; all dialogue flows through
+   Conversation and Presentation.
+4. Every executable artifact is traceable to a human-readable one.
+5. Every dangerous action is evaluated by the Safety Policy Engine at
+   dispatch time.
+6. Memory never controls execution.
+7. New capabilities are registered in the Tool Registry as plugins; the
+   Planner and Compiler are never modified to add an integration.
+8. Every workflow is explainable: the user can always be shown what Orbit
+   intended and what it believed when it planned.
+9. Stages consult services; services never consult stages.
 
 ---
 
-# Scheduler
+## Subsystem Documentation
 
-The Scheduler decides how tasks are executed.
-
-Responsibilities
-
-- sequential execution
-- parallel execution
-- retries
-- dependency resolution
-
-The Scheduler does not plan.
-
-It only schedules.
+| Directory | Status |
+|---|---|
+| planner/ (workflow, task-graph, compiler, replanning) | drafted |
+| tool-registry/ (capabilities, providers) | capabilities drafted |
+| memory/ (world-state, session, working, long-term) | planned |
+| execution/ (browser, desktop, terminal, filesystem) | planned |
+| safety/ (policies, approvals) | planned |
+| decisions/ (ADRs) | ADR-0001, ADR-0002 |
 
 ---
 
-# Safety System
+## Future Evolution
 
-Every task passes through the Safety System.
-
-Responsibilities
-
-- classify risk
-- request approval
-- block dangerous actions
-- verify permissions
-
-Example
-
-Safe
-
-- open website
-- search Google
-- read webpage
-
-Medium
-
-- rename files
-- download documents
-
-High
-
-- delete data
-- send email
-- purchase products
+Multiple collaborating planners, autonomous background agents, local
+models, cloud execution, multi-device synchronization, plugin marketplace.
+Each must extend this shape — new stages, new services, new capabilities —
+rather than replace it.
 
 ---
 
-# Tool Registry
-
-Orbit does not directly know how to control software.
-
-Instead it discovers available capabilities through the Tool Registry.
-
-Examples
-
-Browser
-
-Desktop
-
-Filesystem
-
-Terminal
-
-GitHub
-
-Calendar
-
-Spotify
-
-Slack
-
-VS Code
-
-Future integrations simply register themselves.
-
-No planner changes required.
-
----
-
-# Execution Systems
-
-Execution Systems never make decisions.
-
-They simply execute assigned tasks.
-
-Examples
-
-Browser Executor
-
-Desktop Executor
-
-Terminal Executor
-
-Filesystem Executor
-
-Cloud Executor
-
-Every executor follows the same interface.
-
-Input
-
-Task
-
-Output
-
-Execution Result
-
----
-
-# Knowledge System
-
-Orbit stores information using two different layers.
-
----
-
-## Memory
-
-Long-term information.
-
-Examples
-
-- preferred browser
-- recurring workflows
-- favorite websites
-- active projects
-- communication style
-
-Memory persists.
-
----
-
-## Context
-
-Temporary information.
-
-Examples
-
-- active window
-- clipboard
-- running applications
-- browser state
-
-Context changes continuously.
-
----
-
-# Request Lifecycle
-
-Every request follows the same lifecycle.
-
-```
-User Request
-
-↓
-
-Conversation
-
-↓
-
-Observation
-
-↓
-
-Intelligence
-
-↓
-
-Planning
-
-↓
-
-Task Graph
-
-↓
-
-Scheduler
-
-↓
-
-Safety
-
-↓
-
-Execution
-
-↓
-
-Observe Result
-
-↓
-
-Continue or Finish
-```
-
-Orbit continuously observes the result of execution.
-
-If something changes unexpectedly, Orbit replans instead of blindly continuing.
-
----
-
-# Feedback Loop
-
-Orbit operates as a continuous loop.
-
-Observe
-
-↓
-
-Think
-
-↓
-
-Plan
-
-↓
-
-Execute
-
-↓
-
-Observe Again
-
-↓
-
-Continue
-
-This feedback loop allows Orbit to recover from failures and adapt to changing environments.
-
----
-
-# Architectural Invariants
-
-These rules should remain true regardless of implementation.
-
-### Planner never executes actions.
-
----
-
-### Executors never make decisions.
-
----
-
-### Memory never controls execution.
-
----
-
-### Every execution is observable.
-
----
-
-### Every dangerous action requires approval.
-
----
-
-### New capabilities should be plugins rather than modifications to the planner.
-
----
-
-### Orbit always observes before planning.
-
----
-
-### Every workflow should be explainable.
-
-The user should always be able to understand why Orbit performed an action.
-
----
-
-# Future Evolution
-
-The current architecture is intentionally conservative.
-
-Future versions may introduce:
-
-- Multiple collaborating planners
-- Autonomous background agents
-- Local models
-- Cloud execution
-- Multi-device synchronization
-- Plugin marketplace
-- Team collaboration
-- Personal knowledge graph
-- Autonomous scheduling
-
-These capabilities should extend the architecture rather than replace it.
-
----
-
-# Closing Philosophy
-
-Orbit is not designed to replace the user.
-
-Orbit is designed to remove unnecessary interaction between human intent and computer execution.
-
-The user should spend less time operating software and more time solving problems.
-
-Every architectural decision should move Orbit closer to becoming an intelligent operating companion that understands, assists, and continuously improves alongside its user.
+## Design Review
+
+- **Assumption:** a single linear pipeline suffices. Background/proactive
+  goals (future) will need a second entry point into Goal Builder that
+  doesn't originate from Presentation; the shape allows it but it is
+  undesigned.
+- **Weakness:** "Learning" is currently a named box with one declared edge;
+  it is the least specified service and the most likely to grow tentacles.
+  Constrain it early.
+- **Scalability concern:** World State as a service consulted by everything
+  makes it a contention point; snapshot semantics (already required by the
+  Compiler) are also the mitigation.
+- **Unresolved tradeoff:** per-action safety evaluation maximizes safety and
+  interrupts flow; batching approvals at workflow level maximizes flow and
+  weakens guarantees. Current position: evaluate per action, *ask* in
+  batches where policy allows.
